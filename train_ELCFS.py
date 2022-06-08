@@ -1,7 +1,6 @@
 import os
 import sys
 from tqdm import tqdm
-from tensorboardX import SummaryWriter
 import shutil
 import argparse
 import logging
@@ -13,6 +12,9 @@ from collections import OrderedDict
 from glob import glob
 
 import torch
+from torch.utils.tensorboard import SummaryWriter
+import torch.nn as nn
+from typing import List
 from torch.autograd import Variable
 import torch.optim as optim
 from torchvision import transforms
@@ -41,7 +43,7 @@ parser.add_argument('--seed', type=int,  default=1337, help='random seed')
 parser.add_argument('--gpu', type=str,  default='0', help='GPU to use')
 parser.add_argument('--display_freq', type=int, default=5, help='batch_size per gpu')
 
-parser.add_argument('--unseen_site', type=int, default=0, help='batch_size per gpu')
+parser.add_argument('--unseen_site', type=int, default=3, help='unseen site')
 args = parser.parse_args()
 
 snapshot_path = "../output/" + args.exp + "/"
@@ -55,10 +57,10 @@ client_num = args.client_num
 max_epoch = args.max_epoch
 display_freq = args.display_freq
 
-client_name = ['client1', 'client2', 'client3', 'client4'
+client_name = ['client0', 'client1', 'client2', 'client3']
 client_data_list = []
 for client_idx in range(client_num):
-    client_data_list.append(glob('/research/pheng4/qdliu/dataset/Fundus/{}/processed/npy/*'.format(client_name[client_idx])))
+    client_data_list.append(glob('dataset/{}/data_npy/*'.format(client_name[client_idx])))
     print (len(client_data_list[client_idx]))
 slice_num = np.array([101, 159, 400, 400])
 volume_size = [384, 384, 3]
@@ -80,14 +82,14 @@ if args.deterministic:
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
 
-def update_global_model(net_clients, client_weight):
+def update_global_model(net_clients: List[nn.Module], client_weight):
     # Use the true average until the exponential average is more correct
     for param in zip(net_clients[0].parameters(), net_clients[1].parameters(), net_clients[2].parameters(), \
         net_clients[3].parameters()):
 
         new_para = Variable(torch.Tensor(np.zeros(param[0].shape)), requires_grad=False).cuda() 
         for i in range(client_num):
-            new_para.data.add_(client_weight[i], param[i].data)
+            new_para.data.add_(param[i].data, client_weight[i])
 
         for i in range(client_num):
             param[i].data.mul_(0).add_(new_para.data)
@@ -146,9 +148,9 @@ if __name__ == "__main__":
         os.makedirs(snapshot_path)
     if not os.path.exists(snapshot_path + '/model'):
         os.makedirs(snapshot_path + '/model')
-    if os.path.exists(snapshot_path + '/code'):
-        shutil.rmtree(snapshot_path + '/code')
-    shutil.copytree('.', snapshot_path + '/code', shutil.ignore_patterns(['.git','__pycache__']))
+    # if os.path.exists(snapshot_path + '/code'):
+    #     shutil.rmtree(snapshot_path + '/code')
+    # shutil.copytree('.', snapshot_path + '/code', shutil.ignore_patterns(['.git','__pycache__']))
 
     logging.basicConfig(filename=snapshot_path+"/log.txt", level=logging.INFO,
                         format='[%(asctime)s.%(msecs)03d] %(message)s', datefmt='%H:%M:%S')
@@ -171,6 +173,7 @@ if __name__ == "__main__":
                                 ToTensor(),
                                 ]))
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True,  num_workers=1, pin_memory=True, worker_init_fn=worker_init_fn)
+        # dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         net = Unet2D()
         net = net.cuda()
         optimizer = torch.optim.Adam(net.parameters(), lr=args.base_lr, betas=(0.9, 0.999))
@@ -291,8 +294,8 @@ if __name__ == "__main__":
 
         ## evaluation
         with open(os.path.join(snapshot_path, 'evaluation_result.txt'), 'a') as f:
-            dice_list = []
-            haus_list = []
+            # dice_list = []
+            # haus_list = []
             print("epoch {} testing , site {}".format(epoch_num, unseen_site_idx), file=f)
             dice, dice_array, haus, haus_array = test(unseen_site_idx, net_clients[unseen_site_idx])
             print(("   OD dice is: {}, std is {}".format(dice[0], np.std(dice_array[:, 0]))), file=f)

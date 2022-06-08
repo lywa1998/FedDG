@@ -16,13 +16,13 @@ class Dataset(Dataset):
     """ LA Dataset """
     def __init__(self, client_idx=None, freq_site_idx=None, split='train', transform=None):
         self.transform = transform
-        self.client_name = ['client1', 'client2', 'client3', 'client4']
+        self.client_name = ['client0', 'client1', 'client2', 'client3']
         self.freq_list_clients = []
         if split=='train':
-            self.image_list = glob('xxx/dataset/{}/data_npy/*'.format(self.client_name[client_idx]))
+            self.image_list = glob('/home/stu_luya/Project/FedDG-ELCFS/dataset/{}/data_npy/*'.format(self.client_name[client_idx]))
 
             for i in range(len(self.client_name)):
-                freq_list = glob('xxx/dataset/{}/freq_amp_npy/*'.format(self.client_name[i]))
+                freq_list = glob('/home/stu_luya/Project/FedDG-ELCFS/dataset/{}/freq_amp_npy/*'.format(self.client_name[i]))
                 length = len(freq_list)
                 freq_list = random.sample(freq_list, int(length/8))
                 self.freq_list_clients.append(freq_list)
@@ -69,13 +69,12 @@ class Dataset(Dataset):
 
 def _get_coutour_sample(y_true):
     disc_mask = np.expand_dims(y_true[..., 0], axis=2)
-
     disc_erosion = ndimage.binary_erosion(disc_mask[..., 0], iterations=1).astype(disc_mask.dtype)
     disc_dilation = ndimage.binary_dilation(disc_mask[..., 0], iterations=5).astype(disc_mask.dtype)
     disc_contour = np.expand_dims(disc_mask[..., 0] - disc_erosion, axis = 2)
     disc_bg = np.expand_dims(disc_dilation - disc_mask[..., 0], axis = 2)
+    
     cup_mask = np.expand_dims(y_true[..., 1], axis=2)
-
     cup_erosion = ndimage.binary_erosion(cup_mask[..., 0], iterations=1).astype(cup_mask.dtype)
     cup_dilation = ndimage.binary_dilation(cup_mask[..., 0], iterations=5).astype(cup_mask.dtype)
     cup_contour = np.expand_dims(cup_mask[..., 0] - cup_erosion, axis = 2)

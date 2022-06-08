@@ -102,6 +102,7 @@ for client_idx,im_trg in enumerate(im_trg_list):
     plt.xlabel("Target Image (Client {})".format(client_idx), fontsize=12)
     
     # amplitude spectrum of target data
+    print(im_trg.shape)
     amp_target = extract_amp_spectrum(im_trg)
     amp_target_shift = np.fft.fftshift( amp_target, axes=(-2, -1) )
     
