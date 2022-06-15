@@ -10,8 +10,8 @@ import logging
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--root_path', type=str, default='../data/2018LA_Seg_Training Set/', help='Name of Experiment')
-parser.add_argument('--model', type=str,  default='1030-meta-shape-site3', help='model_name')
-parser.add_argument('--method', type=str,  default='epi_result', help='model_name')
+parser.add_argument('--model', type=str,  default='xxxx', help='model_name')
+parser.add_argument('--method', type=str,  default='xxxx', help='model_name')
 parser.add_argument('--batch_size', type=int,  default=4, help='model_name')
 parser.add_argument('--client_num', type=int,  default=4, help='model_name')
 parser.add_argument('--gpu', type=str,  default='0', help='GPU to use')
@@ -19,24 +19,24 @@ parser.add_argument('--unseen_site', type=int,  default=3, help='GPU to use')
 parser.add_argument('--model_idx', type=int,  default=85, help='GPU to use')
 FLAGS = parser.parse_args()
 
-os.environ['CUDA_VISIBLE_DEVICES'] = FLAGS.gpu
-model_path = "../output/"+FLAGS.model+"/"
+# os.environ['CUDA_VISIBLE_DEVICES'] = FLAGS.gpu
+model_path = "../output/"+FLAGS.model
 snapshot_path = "../output/"+FLAGS.method+"/"
 # test_save_path = "../model/prediction/"+FLAGS.model+"_post/"
 # if not os.path.exists(test_save_path):
 #     os.makedirs(test_save_path)
 args = parser.parse_args()
-batch_size = args.batch_size * len(args.gpu.split(','))
+batch_size = args.batch_size
 volume_size = [384, 384, 1]
 num_classes = 2
 client_num = args.client_num
 
-client_name = ['Site1', 'Site2', 'Site3', 'Site4']
+client_name = ['client0', 'client1', 'client2', 'client3']
 
 client_data_list = []
 for client_idx in range(client_num):
-    client_data_list.append(glob('/research/pheng4/qdliu/dataset/Fundus/{}/processed/npy/*'.format(client_name[client_idx])))
-    print (len(client_data_list[client_idx]))
+    client_data_list.append(glob('dataset/{}/data_npy/*'.format(client_name[client_idx])))
+    print(len(client_data_list[client_idx]))
 
 unseen_site_idx = args.unseen_site
 source_site_idx = [0, 1, 2, 3]
@@ -56,11 +56,11 @@ def _save_image(img, gth, pred, out_folder, out_name):
 def test(site_index, test_net_idx):
     
     test_net = Unet2D()
-    test_net = test_net.cuda()
+    # test_net = test_net.cuda()
 
     save_mode_path = os.path.join(model_path + '/model', 'epoch_' + str(test_net_idx) + '.pth')
-    test_net.load_state_dict(torch.load(save_mode_path))
-    test_net.train()
+    test_net.load_state_dict(torch.load(save_mode_path, map_location=torch.device("cpu")))
+    test_net.eval()
 
     test_data_list = client_data_list[site_index]
 
