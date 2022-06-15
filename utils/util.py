@@ -149,6 +149,9 @@ def _eval_dice(gt_y, pred_y, detail=False):
     return dice
 
 def _connectivity_region_analysis(mask):
+    """
+        四连通
+    """
     s = [[0,1,0],
          [1,1,1],
          [0,1,0]]

@@ -117,5 +117,6 @@ for client_idx,im_trg in enumerate(im_trg_list):
         local_in_trg = local_in_trg.transpose((1,2,0))
         draw_image((np.clip(local_in_trg / 255, 0, 1)))
         plt.xlabel("Interpolation Rate: {}".format(i), fontsize=12)
-    plt.show()
+    # plt.show()
+    plt.savefig(f"{client_idx}.png")
 
