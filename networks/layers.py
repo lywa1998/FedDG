@@ -8,9 +8,9 @@ from torch.autograd import Variable
 
 
 def linear(inputs, weight, bias, meta_step_size=0.001, meta_loss=None, stop_gradient=False):
-    inputs = inputs.cuda()
-    weight = weight.cuda()
-    bias = bias.cuda()
+    # inputs = inputs.cuda()
+    # weight = weight.cuda()
+    # bias = bias.cuda()
 
     if meta_loss is not None:
 
@@ -40,18 +40,18 @@ def linear(inputs, weight, bias, meta_step_size=0.001, meta_loss=None, stop_grad
 
 def conv2d(inputs, weight, bias, stride=1, padding=1, dilation=1, groups=1, kernel_size=3):
 
-    inputs = inputs.cuda()
-    weight = weight.cuda()
-    bias = bias.cuda()
+    # inputs = inputs.cuda()
+    # weight = weight.cuda()
+    # bias = bias.cuda()
 
     return F.conv2d(inputs, weight, bias, stride, padding, dilation, groups)
 
 
 def deconv2d(inputs, weight, bias, stride=2, padding=0, dilation=0, groups=1, kernel_size=None):
 
-    inputs = inputs.cuda()
-    weight = weight.cuda()
-    bias = bias.cuda()
+    # inputs = inputs.cuda()
+    # weight = weight.cuda()
+    # bias = bias.cuda()
 
     return F.conv_transpose2d(inputs, weight, bias, stride, padding, dilation, groups)
 
