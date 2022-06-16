@@ -31,7 +31,7 @@ from dataloaders.fundus_dataloader import Dataset, ToTensor
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--exp', type=str,  default='xxxx', help='model_name')
+parser.add_argument('--exp', type=str,  default='fedavg', help='model_name')
 parser.add_argument('--max_epoch', type=int,  default=100, help='maximum epoch number to train')
 parser.add_argument('--client_num', type=int, default=4, help='batch_size per gpu')
 parser.add_argument('--batch_size', type=int, default=5, help='batch_size per gpu')
@@ -46,13 +46,13 @@ parser.add_argument('--display_freq', type=int, default=5, help='batch_size per 
 parser.add_argument('--unseen_site', type=int, default=3, help='unseen site')
 args = parser.parse_args()
 
-snapshot_path = "../output/" + args.exp + "/"
+snapshot_path = "./output/" + args.exp + "/"
 
 os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 batch_size = args.batch_size * len(args.gpu.split(','))
 meta_step_size = args.meta_step_size
 clip_value = args.clip_value
-base_lr = args.base_lrx
+base_lr = args.base_lr
 client_num = args.client_num
 max_epoch = args.max_epoch
 display_freq = args.display_freq
@@ -62,19 +62,19 @@ client_data_list = []
 for client_idx in range(client_num):
     client_data_list.append(glob('dataset/{}/data_npy/*'.format(client_name[client_idx])))
     print (len(client_data_list[client_idx]))
-slice_num = np.array([101, 159, 400, 400])
+slice_num = np.array([101, 159, 400, 400])  # the size of data in all client 
 volume_size = [384, 384, 3]
-unseen_site_idx = args.unseen_site
-source_site_idx = [0, 1, 2, 3]
+unseen_site_idx = args.unseen_site  # unseen client
+source_site_idx = [0, 1, 2, 3]  # client number
 source_site_idx.remove(unseen_site_idx)
 client_weight = slice_num[source_site_idx] / np.sum(slice_num[source_site_idx])
 client_weight = np.round(client_weight, decimals=2)
-client_weight[-1] = 1 - np.sum(client_weight[:2])
+client_weight[-1] = 1 - np.sum(client_weight[:-1])
 client_weight = np.insert(client_weight, unseen_site_idx, 0)
-print(client_weight)
+print(f"aggregation weight: {client_weight}")
 num_classes = 3
 
-if args.deterministic:
+if args.deterministic:  # set random seed
     cudnn.benchmark = False
     cudnn.deterministic = True
     random.seed(args.seed)
@@ -83,13 +83,16 @@ if args.deterministic:
     torch.cuda.manual_seed(args.seed)
 
 def update_global_model(net_clients: List[nn.Module], client_weight):
+    """
+        FedAvg framework
+    """
     # Use the true average until the exponential average is more correct
     for param in zip(net_clients[0].parameters(), net_clients[1].parameters(), net_clients[2].parameters(), \
         net_clients[3].parameters()):
 
-        new_para = Variable(torch.Tensor(np.zeros(param[0].shape)), requires_grad=False).cuda() 
+        new_para = torch.zeros(param[0].shape, requires_grad=False).cuda() 
         for i in range(client_num):
-            new_para.data.add_(param[i].data, client_weight[i])
+            new_para.data.add_(param[i].data, alpha=client_weight[i])
 
         for i in range(client_num):
             param[i].data.mul_(0).add_(new_para.data)
@@ -100,19 +103,17 @@ def extract_contour_embedding(contour_list, embeddings):
     for contour in contour_list:
         contour_embeddings = contour * embeddings
         average_embeddings = torch.sum(contour_embeddings, (-1,-2))/torch.sum(contour, (-1,-2))
-    # print (contour.shape)
-    # print (embeddings.shape)
-    # print (contour_embeddings.shape)
-    # print (average_embeddings.shape)
         average_embeddings_list.append(average_embeddings)
     return average_embeddings_list
 
-def test(site_index, test_net):
-
+def test(site_index: int, test_net: nn.Module):
+    """
+        evaluate in unseen client
+    """
     test_data_list = client_data_list[site_index]
 
     dice_array = []
-    haus_array = []
+    # haus_array = []
 
     for fid, filename in enumerate(test_data_list):
         data = np.load(filename)
@@ -130,15 +131,16 @@ def test(site_index, test_net):
         processed_pred_y_0 = _connectivity_region_analysis(pred_y_0)
         processed_pred_y_1 = _connectivity_region_analysis(pred_y_1)
         processed_pred_y = np.concatenate([processed_pred_y_0, processed_pred_y_1], axis=1)
-        dice_subject = _eval_dice(mask, processed_pred_y)
-        # haus_subject = _eval_haus(mask, processed_pred_y)
+        dice_subject = _eval_dice(mask, processed_pred_y)  # Dice Coefficient: (Optic Disc, Optic Cup)
+        # haus_subject = _eval_haus(mask, processed_pred_y)  # Hausdorff Distance: (Optic Disc, Optic Cup)
         dice_array.append(dice_subject)
         # haus_array.append(haus_subject)
+        pass
     dice_array = np.array(dice_array)
-    # print (dice_array.shape)
+    # haus_array = np.array(haus_array)
+
     dice_avg = np.mean(dice_array, axis=0).tolist()
-    # print (dice_avg)
-    # haus_avg = np.mean(haus_array, axis=0).tolist()[0]
+    # haus_avg = np.mean(haus_array, axis=0).tolist()
     logging.info("OD dice_avg %.4f OC dice_avg %.4f" % (dice_avg[0], dice_avg[1]))
     return dice_avg, dice_array, 0, [0,0]
 
@@ -148,9 +150,6 @@ if __name__ == "__main__":
         os.makedirs(snapshot_path)
     if not os.path.exists(snapshot_path + '/model'):
         os.makedirs(snapshot_path + '/model')
-    # if os.path.exists(snapshot_path + '/code'):
-    #     shutil.rmtree(snapshot_path + '/code')
-    # shutil.copytree('.', snapshot_path + '/code', shutil.ignore_patterns(['.git','__pycache__']))
 
     logging.basicConfig(filename=snapshot_path+"/log.txt", level=logging.INFO,
                         format='[%(asctime)s.%(msecs)03d] %(message)s', datefmt='%H:%M:%S')
@@ -173,7 +172,6 @@ if __name__ == "__main__":
                                 ToTensor(),
                                 ]))
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True,  num_workers=1, pin_memory=True, worker_init_fn=worker_init_fn)
-        # dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         net = Unet2D()
         net = net.cuda()
         optimizer = torch.optim.Adam(net.parameters(), lr=args.base_lr, betas=(0.9, 0.999))
@@ -188,8 +186,6 @@ if __name__ == "__main__":
     cont_loss_func = losses.NTXentLoss(temperature)
 
     # start federated learning
-    writer = SummaryWriter(snapshot_path+'/log')
-    lr_ = base_lr
     for epoch_num in tqdm(range(max_epoch), ncols=70):
         for client_idx in source_site_idx:
             dataloader_current = dataloader_clients[client_idx]
@@ -205,11 +201,6 @@ if __name__ == "__main__":
                 # obtain training data
                 volume_batch, label_batch, disc_contour, disc_bg, cup_contour, cup_bg = sampled_batch['image'], sampled_batch['label'], \
                 sampled_batch['disc_contour'], sampled_batch['disc_bg'], sampled_batch['cup_contour'], sampled_batch['cup_bg']
-                # volume_batch_raw = volume_batch[:, :3, ...]
-                # volume_batch_trs_1 = volume_batch[:, 3:6, ...]
-                # volume_batch_trs_2 = volume_batch[:, 6:, ...]
-                # volume_batch_raw, volume_batch_trs_1, volume_batch_trs_2, label_batch = \
-                #     volume_batch_raw.cuda(), volume_batch_trs_1.cuda(), volume_batch_trs_2.cuda(), label_batch.cuda()
                 volume_batch_raw_np = volume_batch[:, :3, ...]
                 volume_batch_trs_1_np = volume_batch[:, 3:6, ...]
                 volume_batch_raw, volume_batch_trs_1, label_batch = \
@@ -249,6 +240,7 @@ if __name__ == "__main__":
                 loss_outer = loss_outer_1_dice + cont_loss * 0.1
 
                 total_loss = loss_inner + loss_outer 
+                # total_loss = loss_inner
 
                 optimizer_current.zero_grad()
                 total_loss.backward()
@@ -256,48 +248,18 @@ if __name__ == "__main__":
 
                 iter_num = iter_num + 1
                 if iter_num % display_freq == 0:
-                    writer.add_scalar('lr', lr_, iter_num)
-                    writer.add_scalar('loss/inner', loss_inner, iter_num)
-                    writer.add_scalar('loss/outer', loss_outer, iter_num)
-                    writer.add_scalar('loss/total', total_loss, iter_num)
                     logging.info('Epoch: [%d] client [%d] iteration [%d / %d] : inner loss : %f outer dice loss : %f outer cont loss : %f outer loss : %f total loss : %f' % \
                         (epoch_num, client_idx, iter_num, len(dataloader_current), loss_inner.item(), loss_outer_1_dice.item(), cont_loss.item(), loss_outer.item(), total_loss.item()))
-
-                if iter_num % 20 == 0:
-                    image = np.array(volume_batch_raw_np[0, 0:3, :, :], dtype='uint8')
-                    writer.add_image('train/RawImage', image, iter_num)
-
-                    image = np.array(volume_batch_trs_1_np[0, 0:3, :, :], dtype='uint8')
-                    writer.add_image('train/TrsImage', image, iter_num)
-
-                    image = outputs_soft_inner[0, 0:1, ...].data.cpu().numpy()
-                    writer.add_image('train/RawDiskMask', image, iter_num)
-                    image = outputs_soft_inner[0, 1:, ...].data.cpu().numpy()
-                    writer.add_image('train/RawCupMask', image, iter_num)
-
-
-                    image = np.array(disc_contour[0, 0:1, :, :].data.cpu().numpy())#, dtype='uint8')
-                    writer.add_image('train/disc_contour', image, iter_num)
-
-                    image = np.array(disc_bg[0, 0:1, :, :].data.cpu().numpy())#, dtype='uint8')
-                    writer.add_image('train/disc_bg', image, iter_num)
-
-                    image = np.array(cup_contour[0, 0:1, :, :].data.cpu().numpy())#, dtype='uint8')
-                    writer.add_image('train/cup_contour', image, iter_num)
-
-                    image = np.array(cup_bg[0, 0:1, :, :].data.cpu().numpy())#, dtype='uint8')
-                    writer.add_image('train/cup_bg', image, iter_num)
-
+                    # logging.info('Epoch: [%d] client [%d] iteration [%d / %d] : inner loss : %f total loss : %f' % \
+                    #     (epoch_num, client_idx, iter_num, len(dataloader_current), loss_inner.item(), total_loss.item()))
 
         ## model aggregation
         update_global_model(net_clients, client_weight)
 
         ## evaluation
         with open(os.path.join(snapshot_path, 'evaluation_result.txt'), 'a') as f:
-            # dice_list = []
-            # haus_list = []
             print("epoch {} testing , site {}".format(epoch_num, unseen_site_idx), file=f)
-            dice, dice_array, haus, haus_array = test(unseen_site_idx, net_clients[unseen_site_idx])
+            dice, dice_array, _, _ = test(unseen_site_idx, net_clients[unseen_site_idx])
             print(("   OD dice is: {}, std is {}".format(dice[0], np.std(dice_array[:, 0]))), file=f)
             print(("   OC dice is: {}, std is {}".format(dice[1], np.std(dice_array[:, 1]))), file=f)
             
@@ -306,5 +268,4 @@ if __name__ == "__main__":
         torch.save(net_clients[0].state_dict(), save_mode_path)
         logging.info("save model to {}".format(save_mode_path))
 
-    writer.close()
 

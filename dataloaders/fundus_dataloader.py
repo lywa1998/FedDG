@@ -45,18 +45,13 @@ class Dataset(Dataset):
         image_patches = image_patch.copy()
 
         # image_patches = 
-        # print (image_patch.dtype)
-        # print (mask_patch.dtype)
         disc_contour, disc_bg, cup_contour, cup_bg = _get_coutour_sample(mask_patch)
-        # print ('raw', np.min(image_patch), np.max(image_patch))
         for tar_freq_domain in np.random.choice(self.freq_site_index, 2):
             tar_freq = np.random.choice(self.freq_list_clients[tar_freq_domain])
             tar_freq = np.load(tar_freq)
-            # L1 = random.randint(2,5)/1000.0
-            image_patch_freq_1 = source_to_target_freq(image_patch, tar_freq[...], L=0)
+            L1 = random.randint(2,5)/1000.0
+            image_patch_freq_1 = source_to_target_freq(image_patch, tar_freq[...], L=L1)
             image_patch_freq_1 = np.clip(image_patch_freq_1, 0, 255)
-            # print (image_patch_freq_1.dtype)
-            # print ('trans', np.min(image_patch_freq_1), np.max(image_patch_freq_1))
             image_patches = np.concatenate([image_patches,image_patch_freq_1], axis=-1)
         image_patches = image_patches.transpose(2, 0, 1)
         mask_patches = mask_patch.transpose(2, 0, 1)
@@ -257,7 +252,7 @@ def low_freq_mutate_np( amp_src, amp_trg, L=0.1 ):
     b = (  np.floor(np.amin((h,w))*L)  ).astype(int)
     c_h = np.floor(h/2.0).astype(int)
     c_w = np.floor(w/2.0).astype(int)
-    # print (b)
+
     h1 = c_h-b
     h2 = c_h+b+1
     w1 = c_w-b
@@ -265,12 +260,10 @@ def low_freq_mutate_np( amp_src, amp_trg, L=0.1 ):
 
     ratio = random.randint(1,10)/10
 
-    a_src[:,h1:h2,w1:w2] = a_trg[:,h1:h2,w1:w2]
-    # a_src[:,h1:h2,w1:w2] = a_src[:,h1:h2,w1:w2] * ratio + a_trg[:,h1:h2,w1:w2] * (1- ratio)
+    # a_src[:,h1:h2,w1:w2] = a_trg[:,h1:h2,w1:w2]
+    a_src[:,h1:h2,w1:w2] = a_src[:,h1:h2,w1:w2] * ratio + a_trg[:,h1:h2,w1:w2] * (1- ratio)
     # a_src[:,h1:h2,w1:w2] = a_trg[:,h1:h2,w1:w2]
     a_src = np.fft.ifftshift( a_src, axes=(-2, -1) )
-    # a_trg[:,h1:h2,w1:w2] = a_src[:,h1:h2,w1:w2]
-    # a_trg = np.fft.ifftshift( a_trg, axes=(-2, -1) )
     return a_src
     
 def source_to_target_freq( src_img, amp_trg, L=0.1 ):
