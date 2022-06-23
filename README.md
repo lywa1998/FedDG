@@ -1,55 +1,28 @@
-# FedDG: Federated Domain Generalization on Medical Image Segmentation via Episodic Learning in Continuous Frequency Space
-by [Quande Liu](https://github.com/liuquande), [Cheng Chen](https://cchen-cc.github.io/), [Jing Qin](https://sn.polyu.edu.hk/en/people/academic_staff/index.html#harry.qin), [Qi Dou](http://www.cse.cuhk.edu.hk/~qdou/), [Pheng-Ann Heng](http://www.cse.cuhk.edu.hk/~pheng/). 
+# 眼底图像分割中域泛化问题研究-机器学习作业
 
-### Introduction
+# 工作
+- 传统机器学习方法
+   - K均值聚类算法
+      - 一种居于区域的无监督算法。通过对原始图像的像素点的亮度值对视盘、视杯进行分割，可通过调整聚类数量来提取视盘、视杯的分割效果。
+   - 随机森林算法
+      - 将图像分割任务转化为像素点分类任务。通过对原始图像进行边缘特征提取得到图像的边缘特征，随后联合图像的亮度信息喂入模型进行训练。
+- 深度学习方法
+   - FedSVG算法
+      - 本算法修改自FedDG算法的实现。
+   - FedDG算法
+      -  本算法的官方实现只提供了算法框架，缺少数据处理代码，因此在这里对其进行补全。
 
-This repository is for our CVPR 2021 paper '[FedDG: Federated Domain Generalization on Medical Image Segmentation via Episodic Learning in Continuous Frequency Space](https://arxiv.org/pdf/2103.06030.pdf)'. 
+# 效果
+- K均值聚类算法
+![](figure/kmeans-1.png)
+- 随机森林算法
+![](figure/rf.png)
+- FedDG算法
+![](figure/test-0.png)
 
-![](figure/cvpr21_feddg.png)
+# 后续改进工作
+- 目前FedDG算法中连续频率空间插值可以看到明显的效果提升，但原论文中的边界损失函数的效果在实验过程中并没有得到良好的体现，因此后续将继续研究边界损失函数问题。
+- 论文中所采用的元学习框架为训练过程带来更高的计算代价，下一步将探究将插值数据直接用于模型训练带来的泛化性能差异。
 
-### Usage
-
-1. Start with a demo for continuous frequency space interpolation among federated clicnets:
-   ```shell
-   python freq_space_interpolation_demo.py
-   ```
-<p align="center">
-   <img src="figure/demo.png" width="600"/>
-</p>
-
-2. Prepare the dataset, and then extract the amplitude spectrum of samples in each local client with the function in ``dataset/prepare_dataset.py``:
-
-3. Organize the data (save the data as npy to speed up federated training) and amplitude spectrum of local clients as following structure:
-   ``` 
-     ├── dataset
-        ├── client1
-           ├── data_npy
-               ├── sample1.npy, sample2.npy, xxxx
-           ├── freq_amp_npy
-               ├── amp_sample1.npy, amp_sample2.npy, xxxx
-        ├── clientxxx
-        ├── clientxxx
-   ```
-4. Train the federated learning model with ELCFS:
-   ```shell
-   python train_ELCFS.py
-   ```
-   
-### Citation
-If this repository is useful for your research, please consider citing:
-```
-@article{liu2021feddg,
-  title={FedDG: Federated Domain Generalization on Medical Image Segmentation via Episodic Learning in Continuous Frequency Space},
-  author={Liu, Quande and Chen, Cheng and Qin, Jing and Dou, Qi and Heng, Pheng-Ann},
-  journal={The IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-  year={2021}
-}
-```
-
-#### Acknowledgement
-Some of the code is adapted from [SAML](https://github.com/liuquande/SAML) and [FDA](https://github.com/YanchaoYang/FDA). The datasets used in this paper are downloaded from [Prostate](https://liuquande.github.io/SAML/) and [Fundus](https://github.com/EmmaW8/Dofe).
-
-### Questions
-
-Please contact 'qdliu0226@gmail.com'
-
+# 参考
+本仓库FedDG算法参考自论文的开源实现[FedDG](https://github.com/liuquande/FedDG-ELCFS)
