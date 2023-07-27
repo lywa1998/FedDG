@@ -73,10 +73,10 @@ def load_image( infilename ) :
     data = np.asarray( img, dtype="int32" )
     return data
 
-im_local = Image.open("demo_samples/fundus_client4.jpg")
-im_trg_list = [Image.open("demo_samples/fundus_client1.png"),
-         Image.open("demo_samples/fundus_client2.jpg"),
-         Image.open("demo_samples/fundus_client3.jpg")]
+im_local = Image.open("./client_image/fundus_client4.jpg")
+im_trg_list = [Image.open("./client_image/fundus_client1.png"),
+         Image.open("./client_imagefundus_client2.jpg"),
+         Image.open("./client_image/fundus_client3.jpg")]
 
 im_local = im_local.resize( (384,384), Image.BICUBIC )
 im_local = np.asarray(im_local, np.float32)
@@ -118,5 +118,5 @@ for client_idx,im_trg in enumerate(im_trg_list):
         draw_image((np.clip(local_in_trg / 255, 0, 1)))
         plt.xlabel("Interpolation Rate: {}".format(i), fontsize=12)
     # plt.show()
-    plt.savefig(f"{client_idx}.png")
+    plt.savefig(f"./result/{client_idx}.png")
 
